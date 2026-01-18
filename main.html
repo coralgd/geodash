@@ -1,46 +1,45 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
 <meta charset="UTF-8">
 <title>Main</title>
 <link rel="stylesheet" href="hud.css">
 </head>
 <body>
-
-<div class="hud" style="max-width:600px;margin:60px auto;">
-<h1 id="nick"></h1>
-<p>Баллы: <span id="points"></span></p>
-<p>Место: <span id="place"></span></p>
-<button onclick="location.href='leaderboard.html'">Лидерборд</button>
-<button id="check">Проверить</button>
-<p id="error" style="color:red"></p>
+<div class="hud" style="max-width:600px;margin:60px auto;text-align:center;">
+  <h1>Главная страница</h1>
+  <p id="userInfo"></p>
+  <p id="userPlace"></p>
+  <button id="check" style="margin-top:20px;">Проверить</button>
+  <p id="err" style="color:red;margin-top:10px;"></p>
 </div>
 
 <script type="module">
 import { auth, db } from './firebase.js';
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-auth.js";
-import { doc, getDoc, collection, query, where, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
+import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
 
-onAuthStateChanged(auth, async u=>{
- if(!u) return location.href='index.html';
- const me=(await getDoc(doc(db,'users',u.uid))).data();
- if(me.situation!=='verified') return location.href='nick.html';
- nick.textContent=me.nick;
- points.textContent=me.points;
+const info = document.getElementById('userInfo');
+const place = document.getElementById('userPlace');
+const err = document.getElementById('err');
+const btn = document.getElementById('check');
 
- const q=query(collection(db,'users'),where('situation','==','verified'),orderBy('points','desc'));
- const snap=await getDocs(q);
- let r=0,p=0,last=null;
- snap.forEach(d=>{
-   r++; if(d.data().points!==last){p=r;last=d.data().points;}
-   if(d.id===u.uid) place.textContent=p;
- });
+onAuthStateChanged(auth, async user => {
+  if(!user) return location.href='index.html';
 
- check.onclick=()=>{
-   if(me.role==='moderator') location.href='moderator.html';
-   else if(me.role==='elder') location.href='elder.html';
-   else error.textContent='Ошибка: модерки нет';
- };
+  const userSnap = await getDoc(doc(db,'users',user.uid));
+  const u = userSnap.data();
+
+  if(u.situation!=='verified') return location.href='nick.html';
+
+  info.textContent = `Ник: ${u.nick}`;
+  place.textContent = `Баллы: ${u.points}`;
+
+  btn.onclick = () => {
+    if(u.role==='moderator') location.href='moderator.html';
+    else if(u.role==='elder') location.href='elder.html';
+    else err.textContent = 'Ошибка: модерки нет';
+  };
 });
 </script>
 </body>
