@@ -4,153 +4,33 @@
 <meta charset="UTF-8">
 <title>Старший модератор</title>
 <link rel="stylesheet" href="hud.css">
-<style>
-  .row {
-    display: grid;
-    grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
-    align-items: center;
-    gap: 10px; /* Расстояние между кнопками */
-    margin-bottom: 8px;
-    padding: 6px;
-    background: rgba(0, 0, 50, 0.4);
-    border-radius: 8px;
-    box-shadow: 0 0 8px rgba(0,0,0,0.5);
-  }
-
-  .row div, .row input, .row button {
-    font-family: 'Orbitron', sans-serif;
-    color: #00ffff;
-  }
-
-  .row input {
-    width: 60px;
-    text-align: center;
-    border-radius: 4px;
-    border: 1px solid #00ffff;
-    background: rgba(0,0,0,0.5);
-    color: #00ffff;
-  }
-
-  .row button {
-    padding: 4px 8px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-weight: bold;
-    color: #fff;
-    transition: 0.2s;
-  }
-
-  .points-btn {
-    background: #0088ff;
-    box-shadow: 0 0 12px #0088ff;
-  }
-  .role-btn.active {
-    background: #ff4d4d;
-    box-shadow: 0 0 12px #ff4d4d;
-  }
-  .role-btn.inactive {
-    background: #0088ff;
-    box-shadow: 0 0 12px #0088ff;
-  }
-  .ver-btn.active {
-    background: #ff4d4d;
-    box-shadow: 0 0 12px #ff4d4d;
-  }
-  .ver-btn.inactive {
-    background: #0088ff;
-    box-shadow: 0 0 12px #0088ff;
-  }
-</style>
 </head>
 <body>
-<div class="hud" style="max-width:1100px;margin:40px auto;">
-  <h1>Панель старшего модератора</h1>
-  <div id="list"></div>
+
+<button class="hud-home" id="homeBtn">⟵ Главная</button>
+
+<div class="hud center">
+  <h2>Панель старшего модератора</h2>
 </div>
 
 <script type="module">
 import { auth, db } from './firebase.js';
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-auth.js";
-import { collection, query, orderBy, getDocs, doc, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
+import { onAuthStateChanged } from
+  "https://www.gstatic.com/firebasejs/10.14.0/firebase-auth.js";
+import { doc, getDoc } from
+  "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
 
-onAuthStateChanged(auth, async user=>{
-  if(!user) return location.href='index.html';
-  const meSnap = await getDoc(doc(db,'users',user.uid));
-  const me = meSnap.data();
-  if(me.role!=='elder') return location.href='main.html';
+homeBtn.onclick = () => location.href='main.html';
 
-  const q = query(collection(db,'users'), orderBy('points','desc'));
-  const snap = await getDocs(q);
+onAuthStateChanged(auth, async (user) => {
+  if (!user) return location.href='index.html';
 
-  snap.forEach(d=>{
-    const u = d.data();
-
-    const row = document.createElement('div');
-    row.className='row';
-
-    const nickDiv = document.createElement('div');
-    nickDiv.textContent = u.nick + (u.role==='elder'? ' [Старший]':'') + (u.role==='moderator'? ' [Модер]':'');
-
-    const input = document.createElement('input');
-    input.type='number';
-    input.value = u.points;
-
-    const pointsBtn = document.createElement('button');
-    pointsBtn.textContent='Баллы';
-    pointsBtn.className='points-btn';
-    pointsBtn.onclick=async()=>{ 
-      await updateDoc(doc(db,'users',d.id),{ points:Number(input.value) });
-    };
-
-    const roleBtn = document.createElement('button');
-    const verBtn = document.createElement('button');
-
-    const setRoleBtn=()=>{
-      if(u.role==='moderator'){
-        roleBtn.textContent='Снять модерку';
-        roleBtn.className='role-btn active';
-      } else {
-        roleBtn.textContent='Назначить модером';
-        roleBtn.className='role-btn inactive';
-      }
-    };
-
-    const setVerBtn=()=>{
-      if(u.situation==='verified'){
-        verBtn.textContent='Снять верификацию';
-        verBtn.className='ver-btn active';
-      } else {
-        verBtn.textContent='Верифицировать';
-        verBtn.className='ver-btn inactive';
-      }
-    };
-
-    setRoleBtn();
-    setVerBtn();
-
-    roleBtn.onclick=async()=>{
-      const newRole = u.role==='moderator'?'player':'moderator';
-      await updateDoc(doc(db,'users',d.id),{ role:newRole });
-      u.role=newRole;
-      setRoleBtn();
-    };
-    verBtn.onclick=async()=>{
-      const newSit = u.situation==='verified'?'not requested':'verified';
-      await updateDoc(doc(db,'users',d.id),{ situation:newSit });
-      u.situation=newSit;
-      setVerBtn();
-    };
-
-    row.appendChild(nickDiv);
-    row.appendChild(input);
-    row.appendChild(pointsBtn);
-    row.appendChild(roleBtn);
-    row.appendChild(verBtn);
-
-    document.getElementById('list').appendChild(row);
-  });
+  const snap = await getDoc(doc(db,'users',user.uid));
+  if (!snap.exists() || snap.data().role !== 'elder') {
+    location.href='main.html';
+  }
 });
 </script>
+
 </body>
 </html>
