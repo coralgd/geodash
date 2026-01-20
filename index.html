@@ -1,34 +1,49 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
 <meta charset="UTF-8">
-<title>Login</title>
+<title>Вход</title>
 <link rel="stylesheet" href="hud.css">
 </head>
 <body>
 
-<div class="hud" style="max-width:400px;margin:80px auto;">
-<h1>Вход</h1>
-<input id="email" placeholder="Email"><br><br>
-<input id="password" type="password" placeholder="Password"><br><br>
-<button id="login">Войти</button>
-<button id="register">Регистрация</button>
+<div class="hud center">
+  <h1>GD Board</h1>
+  <input id="email" placeholder="Email">
+  <input id="password" type="password" placeholder="Пароль">
+  <button id="loginBtn">Войти</button>
+  <button id="registerBtn">Регистрация</button>
 </div>
 
 <script type="module">
 import { auth, db } from './firebase.js';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-auth.js";
-import { doc, setDoc } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.14.0/firebase-auth.js";
+import { doc, getDoc } from
+  "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
 
-login.onclick=()=>signInWithEmailAndPassword(auth,email.value,password.value)
-.then(()=>location.href='nick.html');
+onAuthStateChanged(auth, async (user) => {
+  if (!user) return;
 
-register.onclick=()=>createUserWithEmailAndPassword(auth,email.value,password.value)
-.then(u=>setDoc(doc(db,'users',u.user.uid),{
-  role:'player',
-  points:0,
-  situation:'not requested'
-})).then(()=>location.href='nick.html');
+  const snap = await getDoc(doc(db,'users',user.uid));
+  if (snap.exists() && snap.data().situation === 'verified') {
+    location.href='main.html';
+  } else {
+    location.href='nick.html';
+  }
+});
+
+loginBtn.onclick = async () => {
+  await signInWithEmailAndPassword(auth, email.value, password.value);
+};
+
+registerBtn.onclick = async () => {
+  await createUserWithEmailAndPassword(auth, email.value, password.value);
+};
 </script>
+
 </body>
 </html>
