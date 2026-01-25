@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GDashBoard — Отправка прохождений</title>
+<style>
+  body { margin:0; font-family:'Orbitron',sans-serif; background:linear-gradient(135deg,#0a0a1f,#001f3f); color:#00f3ff; }
+  header { background:#001f3f; padding:1rem; text-align:center; font-size:1.5rem; box-shadow:0 0 10px #00f3ff44; }
+  nav ul { display:flex; justify-content:center; list-style:none; padding:0.5rem; background:#001f3f66; margin:0; }
+  nav li { margin:0 1rem; }
+  nav a { color:#00f3ff; text-decoration:none; font-weight:bold; padding:0.3rem 0.6rem; border-radius:6px; transition:0.2s; }
+  nav a:hover { background:#00f3ff22; }
+  .container { max-width:1000px; margin:auto; padding:1rem; }
+  h2{text-align:center; margin-bottom:1rem;}
+  .rules, .upload-section, .history-section { background:rgba(0,31,63,0.7); padding:1rem; border-radius:10px; margin-bottom:2rem; border:1px solid #00f3ff55; }
+  input[type="url"], input[type="text"], textarea { display:block; width:100%; padding:0.5rem; margin:0.5rem 0; border:1px solid #00f3ff55; border-radius:6px; background:#001f3f88; color:#00f3ff; }
+  button { padding:0.5rem 1rem; background:#00f3ff33; border:1px solid #00f3ff; color:#00f3ff; cursor:pointer; font-family:'Orbitron',sans-serif; border-radius:6px; transition:0.2s; }
+  button:hover { background:#00f3ff55; }
+  table { width:100%; border-collapse:collapse; margin-top:1rem; }
+  th, td { border:1px solid #00f3ff44; padding:0.5rem; text-align:center; }
+  th { background:#001f3f66; }
+  .status-approved { color:#0f0; }
+  .status-rejected { color:#f00; }
+  .status-warning { color:#ff0; }
+</style>
+</head>
+<body>
+<header>GDashBoard — Отправка прохождений</header>
+<nav>
+  <ul>
+    <li><a href="main.html">Главная</a></li>
+    <li><a href="leaderboard.html">Лидерборд</a></li>
+    <li><a href="send.html">Отправка</a></li>
+    <li><a href="#" onclick="logout()">Выход</a></li>
+  </ul>
+</nav>
+<div class="container">
+<h2>Правила отправки</h2>
+<div class="rules">
+  <ul>
+    <li>Только оригинальные видео с вашего устройства.</li>
+    <li>Видео цельное: от начала до конца уровня.</li>
+    <li>Обязательный HUD: куб, полоса уровня, проценты прогресса.</li>
+    <li>Запрещены читы, ускорение, noclip, практика с сохранением прогресса.</li>
+    <li>Запрещён монтаж, склейка, обрезка, чужие аккаунты.</li>
+    <li>Видео должно содержать оригинальный звук уровня.</li>
+    <li>Видео загружается на YouTube или Google Drive (доступ "по ссылке") и вставляется в форму.</li>
+  </ul>
+</div>
+<h2>Отправка файла</h2>
+<div class="upload-section">
+  <input type="url" id="videoLink" placeholder="Вставьте ссылку на видео YouTube или Google Drive">
+  <input type="text" id="levelName" placeholder="Название уровня">
+  <textarea id="description" placeholder="Комментарий"></textarea>
+  <button onclick="submitVideo()">Отправить</button>
+</div>
+<h2>История отправок</h2>
+<div class="history-section">
+  <table>
+    <thead><tr><th>Дата</th><th>Уровень</th><th>Ссылка</th><th>Комментарий модера</th><th>Статус</th></tr></thead>
+    <tbody id="historyTable"></tbody>
+  </table>
+</div>
+</div>
+<script type="module">
+import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.6.0/firebase-auth.js";
+import { getFirestore, collection, addDoc, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.6.0/firebase-firestore.js";
+import { app } from "./firebase.js";
+
+const auth = getAuth(app);
+const db = getFirestore(app);
+const historyTable = document.getElementById('historyTable');
+
+onAuthStateChanged(auth, user => {
+  if(!user||!user.emailVerified){ alert("Только верифицированные пользователи."); window.location.href="./index.html"; }
+  else loadHistory(user.uid);
+});
+
+async function submitVideo() {
+  const link=document.getElementById('videoLink').value.trim();
+  const level=document.getElementById('levelName').value.trim();
+  const desc=document.getElementById('description').value.trim();
+  if(!link||!level){ alert("Укажите ссылку и уровень!"); return; }
+  const user=auth.currentUser;
+  try{
+    await addDoc(collection(db,"submissions"),{userId:user.uid, videoUrl:link, levelName:level, description:desc,status:"pending", modComment:"", createdAt:serverTimestamp()});
+    alert("Отправлено на проверку!");
+    document.getElementById('videoLink').value=""; document.getElementById('levelName').value=""; document.getElementById('description').value="";
+    loadHistory(user.uid);
+  } catch(e){ console.error(e); alert("Ошибка!"); }
+}
+
+async function loadHistory(uid){
+  historyTable.innerHTML="";
+  const querySnapshot=await getDocs(collection(db,"submissions"));
+  querySnapshot.forEach(doc=>{
+    const data=doc.data();
+    if(data.userId===uid){
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td>${data.createdAt?.toDate?.()?.toLocaleString()||"Загрузка..."}</td>
+      <td>${data.levelName}</td>
+      <td><a href="${data.videoUrl}" target="_blank">Ссылка</a></td>
+      <td>${data.modComment||"-"}</td>
+      <td class="status-${data.status.toLowerCase()}">${data.status}</td>`;
+      historyTable.appendChild(tr);
+    }
+  });
+}
+
+window.logout=()=>signOut(auth).then(()=>window.location.href="./index.html");
+</script>
+</body>
+</html>
