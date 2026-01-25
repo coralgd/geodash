@@ -2,35 +2,92 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<title>Модератор</title>
-<link rel="stylesheet" href="hud.css">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GDashBoard — Модераторская</title>
+<style>
+body { margin:0; font-family:'Orbitron',sans-serif; background:linear-gradient(135deg,#0a0a1f,#001f3f); color:#00f3ff; }
+header { background:#001f3f; padding:1rem; text-align:center; font-size:1.5rem; box-shadow:0 0 10px #00f3ff44; }
+nav ul { display:flex; justify-content:center; list-style:none; padding:0.5rem; background:#001f3f66; margin:0; }
+nav li { margin:0 1rem; }
+nav a { color:#00f3ff; text-decoration:none; font-weight:bold; padding:0.3rem 0.6rem; border-radius:6px; transition:0.2s; }
+nav a:hover { background:#00f3ff22; }
+.container { max-width:1000px; margin:auto; padding:1rem; }
+h2{text-align:center; margin-bottom:1rem;}
+.table-section { background:rgba(0,31,63,0.7); padding:1rem; border-radius:10px; margin-bottom:2rem; border:1px solid #00f3ff55; }
+table { width:100%; border-collapse:collapse; }
+th, td { border:1px solid #00f3ff44; padding:0.5rem; text-align:center; }
+th { background:#001f3f66; }
+button { padding:0.3rem 0.6rem; margin:0.2rem; border-radius:6px; border:1px solid #00f3ff; background:#00f3ff33; color:#00f3ff; cursor:pointer; transition:0.2s; }
+button:hover { background:#00f3ff55; }
+.status-pending { color:#ff0; }
+.status-approved { color:#0f0; }
+.status-rejected { color:#f00; }
+.status-warning { color:#f90; }
+</style>
 </head>
 <body>
-
-<button class="hud-home" id="homeBtn">⟵ Главная</button>
-
-<div class="hud center">
-  <h2>Панель модератора</h2>
+<header>GDashBoard — Модераторская</header>
+<nav>
+<ul>
+<li><a href="main.html">Главная</a></li>
+<li><a href="send.html">Отправка</a></li>
+<li><a href="moderator.html">Модераторская</a></li>
+<li><a href="#" onclick="logout()">Выход</a></li>
+</ul>
+</nav>
+<div class="container">
+<h2>Новые отправки</h2>
+<div class="table-section">
+<table>
+<thead><tr><th>Дата</th><th>Игрок</th><th>Уровень</th><th>Ссылка</th><th>Комментарий</th><th>Статус</th><th>Действие</th></tr></thead>
+<tbody id="submissionsTable"></tbody>
+</table>
 </div>
-
+</div>
 <script type="module">
-import { auth, db } from './firebase.js';
-import { onAuthStateChanged } from
-  "https://www.gstatic.com/firebasejs/10.14.0/firebase-auth.js";
-import { doc, getDoc } from
-  "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
+import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.6.0/firebase-auth.js";
+import { getFirestore, collection, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.6.0/firebase-firestore.js";
+import { app } from "./firebase.js";
 
-homeBtn.onclick = () => location.href='main.html';
+const auth = getAuth(app);
+const db = getFirestore(app);
+const table = document.getElementById('submissionsTable');
 
-onAuthStateChanged(auth, async (user) => {
-  if (!user) return location.href='index.html';
-
-  const snap = await getDoc(doc(db,'users',user.uid));
-  if (!snap.exists() || !['moderator','elder'].includes(snap.data().role)) {
-    location.href='main.html';
-  }
+onAuthStateChanged(auth, user=>{
+  if(!user||!user.emailVerified){ window.location.href="./index.html"; }
+  else loadSubmissions();
 });
-</script>
 
+async function loadSubmissions(){
+  table.innerHTML="";
+  const snapshot = await getDocs(collection(db,"submissions"));
+  snapshot.forEach(docSnap=>{
+    const data=docSnap.data();
+    if(data.status==="pending"){
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td>${data.createdAt?.toDate?.()?.toLocaleString()||""}</td>
+      <td>${data.userId}</td>
+      <td>${data.levelName}</td>
+      <td><a href="${data.videoUrl}" target="_blank">Ссылка</a></td>
+      <td>${data.description||"-"}</td>
+      <td class="status-${data.status.toLowerCase()}">${data.status}</td>
+      <td>
+        <button onclick="setStatus('${docSnap.id}','approved')">Подтвердить</button>
+        <button onclick="setStatus('${docSnap.id}','rejected')">Отказать</button>
+        <button onclick="setStatus('${docSnap.id}','warning')">Предупреждение</button>
+      </td>`;
+      table.appendChild(tr);
+    }
+  });
+}
+
+async function setStatus(id,status){
+  const docRef=doc(db,"submissions",id);
+  await updateDoc(docRef,{status:status});
+  loadSubmissions();
+}
+
+window.logout=()=>signOut(auth).then(()=>window.location.href="./index.html");
+</script>
 </body>
 </html>
